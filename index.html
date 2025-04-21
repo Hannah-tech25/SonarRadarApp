@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Full-Screen Radar Display</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh; /* Full screen height */
+      overflow: hidden; /* Prevent scrollbars */
+    }
+    canvas {
+      display: block;
+      background: black;
+    }
+  </style>
+</head>
+<body>
+<canvas id="radar"></canvas>
+
+<!-- Add a beep sound -->
+<audio id="beep-sound" src="https://freesound.org/data/previews/522/522315_11581617-lq.mp3" preload="auto"></audio>
+
+<script>
+  const canvas = document.getElementById("radar");
+  const ctx = canvas.getContext("2d");
+  const beepSound = document.getElementById("beep-sound");
+
+  // Adjust canvas size to fit the screen
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = Math.min(canvas.width, canvas.height) / 2 - 20; // Ensure it fits within the screen
+  let angle = 0;
+
+  // Store dots
+  const dots = [];
+
+  // Function to create random dots
+  function createDot() {
+    const randomAngle = Math.random() * 2 * Math.PI;
+    const randomRadius = Math.random() * radius;
+    const dotX = centerX + randomRadius * Math.cos(randomAngle);
+    const dotY = centerY + randomRadius * Math.sin(randomAngle);
+
+    dots.push({ x: dotX, y: dotY, time: Date.now(), brightness: 0.5 });
+  }
+
+  function drawRadar() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw circles
+    ctx.strokeStyle = "green";
+    ctx.lineWidth = 1;
+    for (let r = radius / 5; r <= radius; r += radius / 5) {
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, r, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+
+    // Draw cross lines
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY - radius);
+    ctx.lineTo(centerX, centerY + radius);
+    ctx.moveTo(centerX - radius, centerY);
+    ctx.lineTo(centerX + radius, centerY);
+    ctx.stroke();
+
+    // Draw sweeping needle
+    ctx.strokeStyle = "lime";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    const needleX = centerX + radius * Math.cos(angle);
+    const needleY = centerY + radius * Math.sin(angle);
+    ctx.lineTo(needleX, needleY);
+    ctx.stroke();
+
+    // Draw dots and make them brighter when the needle is near
+    dots.forEach((dot, index) => {
+      const dx = dot.x - centerX;
+      const dy = dot.y - centerY;
+      const dotAngle = Math.atan2(dy, dx);
+      const distanceToNeedle = Math.abs(dotAngle - angle);
+
+      // If the needle is close, increase brightness and play beep
+      if (distanceToNeedle < 0.2 || distanceToNeedle > 2 * Math.PI - 0.2) {
+        dot.brightness = 1;
+        // Play beep sound once
+        if (!dot.beeped) {
+          beepSound.currentTime = 0; // Reset sound to start
+          beepSound.play();
+          dot.beeped = true; // Ensure it only beeps once
+        }
+      } else {
+        dot.brightness = 0.5;
+      }
+
+      ctx.fillStyle = `rgba(0, 255, 0, ${dot.brightness})`;
+      ctx.beginPath();
+      ctx.arc(dot.x, dot.y, 3, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Remove dots after 2 seconds
+      if (Date.now() - dot.time > 2000) {
+        dots.splice(index, 1);
+      }
+    });
+
+    angle += 0.02;
+    if (angle > 2 * Math.PI) angle = 0;
+
+    requestAnimationFrame(drawRadar);
+  }
+
+  // Generate dots every 500ms
+  setInterval(createDot, 500);
+
+  drawRadar();
+</script>
+</body>
+</html>
